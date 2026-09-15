@@ -1,0 +1,633 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Tier 2 / Tier 3 reference-to-block support adjustment</title>
+  <style>
+    :root {
+      --ink: #20252a;
+      --muted: #626a72;
+      --line: #d8dde2;
+      --panel: #f5f6f7;
+      --blue: #1f5f99;
+      --blue-bg: #eef6ff;
+      --blue-line: #8dbbe5;
+      --amber: #7a4a00;
+      --amber-bg: #fff5df;
+      --amber-line: #d4a64a;
+      --warning-bg: #fff8e8;
+      --warning-line: #e1c77a;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      color: var(--ink);
+      background: #fff;
+      font: 13px/1.4 system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+    main { max-width: 1360px; margin: 0 auto; padding: 20px; }
+    h1 { margin: 0 0 18px; font-size: 27px; font-weight: 500; }
+    h2 { margin: 0 0 10px; font-size: 18px; font-weight: 600; }
+    h3 { margin: 0 0 8px; font-size: 14px; font-weight: 600; }
+    .layout { display: grid; grid-template-columns: minmax(400px, 1fr) minmax(520px, 1fr); gap: 24px; }
+    .panel {
+      margin-bottom: 10px;
+      padding: 13px;
+      border: 1px solid var(--line);
+      border-radius: 5px;
+      background: var(--panel);
+    }
+    .button-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 7px; margin-bottom: 14px; }
+    button {
+      min-height: 34px;
+      padding: 6px 8px;
+      border: 1px solid #b9c0c7;
+      border-radius: 4px;
+      color: var(--ink);
+      background: #fff;
+      font: inherit;
+      cursor: pointer;
+    }
+    button:hover { background: #f0f3f5; border-color: #929ba4; }
+    button:focus-visible, input:focus-visible { outline: 2px solid #2b78c5; outline-offset: 1px; }
+    fieldset { margin: 0 0 10px; padding: 0; border: 0; }
+    legend, label { display: block; margin-bottom: 4px; font-weight: 600; }
+    .radio-row { display: flex; flex-wrap: wrap; gap: 7px 18px; }
+    .radio-column { display: grid; gap: 5px; }
+    .radio-row label, .radio-column label { display: inline-flex; align-items: center; gap: 5px; font-weight: 400; }
+    input[type="radio"] { margin: 0; }
+    input[type="text"] {
+      width: 100%;
+      height: 34px;
+      padding: 6px 9px;
+      border: 1px solid #b9c0c7;
+      border-radius: 4px;
+      background: #fff;
+      color: var(--ink);
+      font: inherit;
+    }
+    .field { margin-bottom: 9px; }
+    .pair { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+    .sd-field label { color: var(--blue); }
+    .sd-field input { background: var(--blue-bg); border-color: var(--blue-line); }
+    .var-field label { color: var(--amber); }
+    .var-field input { background: var(--amber-bg); border-color: var(--amber-line); }
+    .help { margin: 3px 0 0; color: var(--muted); font-size: 11px; }
+    .output-top, .output-bottom { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; }
+    .equation {
+      margin-bottom: 7px;
+      padding: 7px 9px;
+      border-left: 3px solid #777;
+      background: #f7f7f7;
+      font-family: Georgia, "Times New Roman", serif;
+    }
+    .plot-frame {
+      width: 100%;
+      min-height: 250px;
+      border: 1px solid #e1e4e7;
+      background: #fff;
+    }
+    .plot-frame svg { display: block; width: 100%; height: 250px; }
+    .resultbox {
+      display: grid;
+      grid-template-columns: minmax(185px, 0.8fr) 1fr;
+      gap: 8px;
+      margin-bottom: 7px;
+      padding: 8px 10px;
+      border: 1px solid #ddd;
+      border-radius: 4px;
+      background: #fbfbfb;
+    }
+    .status { color: var(--muted); font-style: italic; }
+    .diagnostic {
+      padding: 9px;
+      border: 1px solid var(--warning-line);
+      border-radius: 4px;
+      background: var(--warning-bg);
+      font-size: 12px;
+    }
+    .diagnostic p { margin: 0 0 5px; }
+    .diagnostic p:last-child { margin-bottom: 0; }
+    .notice { margin-top: 12px; padding-top: 8px; border-top: 1px solid var(--line); color: var(--muted); font-size: 11px; }
+    [hidden] { display: none !important; }
+    @media (max-width: 1050px) {
+      .layout { grid-template-columns: 1fr; }
+    }
+    @media (max-width: 700px) {
+      main { padding: 14px; }
+      .pair, .output-top, .output-bottom { grid-template-columns: 1fr; gap: 0; }
+      .button-grid { grid-template-columns: repeat(2, 1fr); }
+      .resultbox { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+<main>
+  <h1>Tier 2 / Tier 3 reference-to-block support adjustment</h1>
+  <div class="layout">
+    <section>
+      <div class="panel">
+        <h3>Example inputs</h3>
+        <div class="button-grid" aria-label="Example inputs">
+          <button type="button" data-example="bts">BTS</button>
+          <button type="button" data-example="swe10">SWE 10 m</button>
+          <button type="button" data-example="swe100">SWE 100 m</button>
+          <button type="button" data-example="no2de">NO<sub>2</sub>-DE</button>
+          <button type="button" data-example="no2euSplit">NO<sub>2</sub>-EU split</button>
+          <button type="button" data-example="no2euFull">NO<sub>2</sub>-EU full</button>
+          <button type="button" data-example="meuseZn">Meuse-Zn</button>
+          <button type="button" data-example="meuseCd">Meuse-Cd</button>
+        </div>
+
+        <fieldset>
+          <legend>Reported validation metric</legend>
+          <div class="radio-row">
+            <label><input type="radio" name="metric_type" value="correlation"> correlation <i>r</i></label>
+            <label><input type="radio" name="metric_type" value="r2_cor" checked> R²<sub>cor</sub></label>
+            <label><input type="radio" name="metric_type" value="r2_pred"> R²<sub>pred</sub></label>
+          </div>
+        </fieldset>
+        <div class="field">
+          <label for="metric_value">Value of selected metric</label>
+          <input id="metric_value" type="text" inputmode="decimal" value="0.451">
+        </div>
+        <div class="field">
+          <label for="rmse_obs">Raw RMSE or ubRMSE (optional)</label>
+          <input id="rmse_obs" type="text" inputmode="decimal" value="1.82">
+        </div>
+        <div class="pair">
+          <div class="field sd-field">
+            <label for="obs_sd">Observed reference SD σ<sub>obs</sub></label>
+            <input id="obs_sd" type="text" inputmode="decimal" value="2.046948">
+          </div>
+          <div class="field var-field">
+            <label for="obs_var">Observed reference variance σ²<sub>obs</sub></label>
+            <input id="obs_var" type="text" inputmode="decimal" value="4.19">
+          </div>
+        </div>
+        <div class="pair">
+          <div class="field sd-field">
+            <label for="eps_sd">Measurement-error SD σ<sub>ε</sub></label>
+            <input id="eps_sd" type="text" inputmode="decimal" value="0.2236068">
+          </div>
+          <div class="field var-field">
+            <label for="eps_var">Measurement-error variance σ²<sub>ε</sub></label>
+            <input id="eps_var" type="text" inputmode="decimal" value="0.05">
+          </div>
+        </div>
+      </div>
+
+      <div class="panel">
+        <h3>Support inputs</h3>
+        <fieldset>
+          <legend>Support information</legend>
+          <div class="radio-column">
+            <label><input type="radio" name="support_mode" value="direct"> Enter λ<sub>A,B</sub> and Δ<sub>A,B</sub> directly</label>
+            <label><input type="radio" name="support_mode" value="svgm" checked> Use semivariogram support approximation</label>
+          </div>
+        </fieldset>
+
+        <div id="direct_inputs" hidden>
+          <div class="field">
+            <label for="lambda_direct">Representativeness factor λ<sub>A,B</sub></label>
+            <input id="lambda_direct" type="text" inputmode="decimal" value="0.806">
+          </div>
+          <div class="field var-field">
+            <label for="delta_direct">Support-variance difference Δ<sub>A,B</sub></label>
+            <input id="delta_direct" type="text" inputmode="decimal" value="0.763">
+          </div>
+          <p class="help">Use this mode when λ<sub>A,B</sub> and Δ<sub>A,B</sub> come from numerical integration, a reported representativeness-error estimate, or another component-specific calculation. The example buttons use semivariogram mode whenever the corresponding parameter inputs are available.</p>
+        </div>
+
+        <div id="svgm_inputs">
+          <div class="pair">
+            <div class="field sd-field">
+              <label for="mu_sd">True microscale SD σ<sub>μ</sub></label>
+              <input id="mu_sd" type="text" inputmode="decimal" value="0.6324555">
+            </div>
+            <div class="field var-field">
+              <label for="mu_var">True microscale variance σ²<sub>μ</sub></label>
+              <input id="mu_var" type="text" inputmode="decimal" value="0.40">
+            </div>
+          </div>
+          <div class="pair">
+            <div class="field sd-field">
+              <label for="sigmaS_sd_in">Structural partial-sill SD σ<sub>S</sub></label>
+              <input id="sigmaS_sd_in" type="text" inputmode="decimal" value="1.688194">
+            </div>
+            <div class="field var-field">
+              <label for="sigmaS_var_in">Structural partial sill σ²<sub>S</sub></label>
+              <input id="sigmaS_var_in" type="text" inputmode="decimal" value="2.85">
+            </div>
+          </div>
+          <div class="pair">
+            <div class="field">
+              <label for="block_L">Block side <i>L</i> (target resolution)</label>
+              <input id="block_L" type="text" inputmode="decimal" value="30">
+            </div>
+            <div class="field">
+              <label for="range_a">Structural range <i>a</i></label>
+              <input id="range_a" type="text" inputmode="decimal" value="180">
+            </div>
+          </div>
+          <fieldset>
+            <legend>Structural covariance model</legend>
+            <div class="radio-row">
+              <label><input type="radio" name="svgm_model" value="spherical" checked> spherical</label>
+              <label><input type="radio" name="svgm_model" value="exponential"> exponential, practical range</label>
+            </div>
+          </fieldset>
+          <p class="help">Enter the structural partial sill that belongs to the structural range. It may be the partial sill of a response semivariogram or of a residual/component semivariogram; it is not inferred from the observed reference variance.</p>
+        </div>
+      </div>
+    </section>
+
+    <section>
+      <div class="output-top">
+        <div>
+          <h2>Equations</h2>
+          <div class="equation">λ<sub>A,B</sub> = Var{Z<sub>B</sub>(B<sub>i</sub>)} / σ²<sub>obs</sub></div>
+          <div class="equation">R²<sub>cor,B</sub> ≈ R²<sub>cor,obs</sub> / λ<sub>A,B</sub></div>
+          <div class="equation">MSE<sub>B</sub> ≈ MSE<sub>obs</sub> − Δ<sub>A,B</sub> − σ²<sub>ε</sub></div>
+          <div class="equation">R²<sub>pred,B</sub> ≈ 1 − MSE<sub>B</sub> / Var{Z<sub>B</sub>(B<sub>i</sub>)}</div>
+          <div class="equation">Δ<sub>p,B</sub> ≈ σ²<sub>μ</sub> + 128/(45π) σ²<sub>S</sub>{1 − ρ<sub>S</sub>(R)}</div>
+        </div>
+        <div>
+          <h2>Semivariogram</h2>
+          <div id="svgm_plot" class="plot-frame" role="img" aria-label="Semivariogram plot"></div>
+        </div>
+      </div>
+      <div class="output-bottom">
+        <div>
+          <h2>Results</h2>
+          <div id="results" aria-live="polite"></div>
+        </div>
+        <div>
+          <h2>Diagnostics</h2>
+          <div id="diagnostics" class="diagnostic" aria-live="polite"></div>
+          <div class="notice">
+            © Alexander Brenning and Thomas Suesse. License: GPL-3 or later.<br>
+            Cite as: Brenning and Suesse, <em>Support-adjusted validation metrics in environmental prediction</em> (manuscript).
+          </div>
+        </div>
+      </div>
+    </section>
+  </div>
+</main>
+
+<script>
+"use strict";
+
+const $ = id => document.getElementById(id);
+
+function numberOrNaN(value) {
+  const text = String(value ?? "").trim();
+  if (text === "") return NaN;
+  const result = Number(text);
+  return Number.isFinite(result) ? result : NaN;
+}
+
+function significant(value, digits = 8) {
+  if (!Number.isFinite(value)) return "";
+  return Number(value.toPrecision(digits)).toString();
+}
+
+function fmt(value, digits = 3) {
+  if (value === null || Number.isNaN(value)) return "--";
+  if (!Number.isFinite(value)) return "n.i.";
+  const abs = Math.abs(value);
+  if (abs !== 0 && (abs >= 1e6 || abs < 1e-4)) return value.toExponential(digits - 1);
+  const decimals = Math.max(0, digits - 1 - Math.floor(Math.log10(abs || 1)));
+  return value.toFixed(decimals);
+}
+
+function selected(name) {
+  return document.querySelector(`input[name="${name}"]:checked`).value;
+}
+
+function metricToComponents(metricType, metricValue, sigma2Obs, rmseObs) {
+  const out = { rawR: NaN, rawR2Cor: NaN, rawR2Pred: NaN, mseObs: NaN };
+  if (!Number.isNaN(metricValue)) {
+    if (metricType === "correlation") {
+      out.rawR = metricValue;
+      out.rawR2Cor = metricValue ** 2;
+    } else if (metricType === "r2_cor") {
+      out.rawR2Cor = metricValue;
+      out.rawR = metricValue >= 0 ? Math.sqrt(metricValue) : NaN;
+    } else if (metricType === "r2_pred") {
+      out.rawR2Pred = metricValue;
+      if (!Number.isNaN(sigma2Obs)) out.mseObs = (1 - metricValue) * sigma2Obs;
+    }
+  }
+  if (!Number.isNaN(rmseObs)) out.mseObs = rmseObs ** 2;
+  return out;
+}
+
+function rhoSpherical(h, range) {
+  if (Number.isNaN(h) || Number.isNaN(range) || range <= 0) return NaN;
+  const x = h / range;
+  if (x >= 1) return 0;
+  return 1 - (1.5 * x - 0.5 * x ** 3);
+}
+
+function rhoExponentialPractical(h, range) {
+  if (Number.isNaN(h) || Number.isNaN(range) || range <= 0) return NaN;
+  return Math.exp(-3 * h / range);
+}
+
+function semivariogramSupport(sigma2Obs, sigma2Eps, sigma2Mu, sigma2S, blockSide, range, model) {
+  const radius = blockSide / Math.sqrt(Math.PI);
+  if (Number.isNaN(sigma2S) || sigma2S < 0) {
+    return { mode: "svgm", sigma2S, radius, rho: NaN, delta: NaN, lambda: NaN, varBlock: NaN, varianceRemainder: NaN };
+  }
+  const rho = model === "spherical" ? rhoSpherical(radius, range) : rhoExponentialPractical(radius, range);
+  const k = 128 / (45 * Math.PI);
+  const delta = sigma2Mu + k * sigma2S * (1 - rho);
+  const varBlock = sigma2Obs - sigma2Eps - delta;
+  const lambda = varBlock / sigma2Obs;
+  const varianceRemainder = sigma2Obs - sigma2Eps - sigma2Mu - sigma2S;
+  return { mode: "svgm", sigma2S, radius, rho, delta, lambda, varBlock, varianceRemainder };
+}
+
+function supportValues() {
+  const sigma2Obs = numberOrNaN($("obs_var").value);
+  const sigma2Eps = numberOrNaN($("eps_var").value);
+  if (selected("support_mode") === "direct") {
+    const lambda = numberOrNaN($("lambda_direct").value);
+    const delta = numberOrNaN($("delta_direct").value);
+    const varBlock = !Number.isNaN(lambda) && !Number.isNaN(sigma2Obs) ? lambda * sigma2Obs : NaN;
+    return { mode: "direct", lambda, delta, varBlock, sigma2S: NaN, radius: NaN, rho: NaN, varianceRemainder: NaN };
+  }
+  return semivariogramSupport(
+    sigma2Obs,
+    sigma2Eps,
+    numberOrNaN($("mu_var").value),
+    numberOrNaN($("sigmaS_var_in").value),
+    numberOrNaN($("block_L").value),
+    numberOrNaN($("range_a").value),
+    selected("svgm_model")
+  );
+}
+
+function resultBox(label, value, status = "") {
+  return `<div class="resultbox"><strong>${label}</strong><span>${value}${status ? ` &nbsp; <span class="status">${status}</span>` : ""}</span></div>`;
+}
+
+function calculate() {
+  const sigma2Obs = numberOrNaN($("obs_var").value);
+  const sigma2Eps = numberOrNaN($("eps_var").value);
+  const rmseObs = numberOrNaN($("rmse_obs").value);
+  const metricValue = numberOrNaN($("metric_value").value);
+  const raw = metricToComponents(selected("metric_type"), metricValue, sigma2Obs, rmseObs);
+  const support = supportValues();
+  const qEps = sigma2Obs > 0 && !Number.isNaN(sigma2Eps) ? sigma2Eps / sigma2Obs : NaN;
+
+  let r2CorB = NaN, r2PredB = NaN, rmseB = NaN;
+  let r2CorStatus = "not computed", r2PredStatus = "not computed", rmseStatus = "not computed";
+
+  if (!Number.isNaN(raw.rawR2Cor) && !Number.isNaN(support.lambda) && support.lambda > 0) {
+    const candidate = raw.rawR2Cor / support.lambda;
+    if (candidate >= 0 && candidate <= 1) {
+      r2CorB = candidate;
+      r2CorStatus = "finite";
+    } else {
+      r2CorStatus = "n.i.: adjusted R²_cor exceeds feasible range";
+    }
+  }
+
+  if (!Number.isNaN(raw.mseObs) && !Number.isNaN(support.delta) && !Number.isNaN(sigma2Eps) && !Number.isNaN(support.varBlock)) {
+    const mseB = raw.mseObs - support.delta - sigma2Eps;
+    const candidate = 1 - mseB / support.varBlock;
+    if (mseB >= 0 && support.varBlock > 0 && candidate <= 1) {
+      r2PredB = candidate;
+      r2PredStatus = "finite";
+    } else {
+      r2PredStatus = "n.i.: MSE-scale endpoint outside feasible range";
+    }
+  }
+
+  if (!Number.isNaN(rmseObs) && !Number.isNaN(support.delta) && !Number.isNaN(sigma2Eps)) {
+    const mseB = rmseObs ** 2 - support.delta - sigma2Eps;
+    if (mseB >= 0) {
+      rmseB = Math.sqrt(mseB);
+      rmseStatus = "finite";
+    } else {
+      rmseStatus = "n.i.: adjusted MSE is negative";
+    }
+  }
+
+  $("results").innerHTML = [
+    resultBox("q<sub>ε</sub>", fmt(qEps, 4)),
+    resultBox("λ<sub>A,B</sub>", fmt(support.lambda, 4)),
+    resultBox("Δ<sub>A,B</sub>", fmt(support.delta, 4)),
+    resultBox("Var{Z<sub>B</sub>(B<sub>i</sub>)}", fmt(support.varBlock, 4)),
+    resultBox("Tier 2/3 R²<sub>cor,B</sub>", fmt(r2CorB), r2CorStatus),
+    resultBox("Tier 2/3 R²<sub>pred,B</sub>", fmt(r2PredB), r2PredStatus),
+    resultBox("Tier 2/3 RMSE<sub>B</sub>", fmt(rmseB), rmseStatus)
+  ].join("");
+
+  const messages = [];
+  if (Number.isNaN(sigma2Obs) || sigma2Obs <= 0) messages.push("Observed reference variance must be positive.");
+  if (Number.isNaN(sigma2Eps) || sigma2Eps < 0) messages.push("Measurement-error variance must be non-negative.");
+  if (!Number.isNaN(qEps) && qEps >= 1) messages.push("q_epsilon must be smaller than one.");
+  if (support.mode === "svgm") {
+    messages.push(`Entered structural partial sill σ²_S = ${fmt(support.sigma2S, 4)}.`);
+    if (!Number.isNaN(support.sigma2S) && support.sigma2S < 0) messages.push("Structural partial sill must be non-negative.");
+    if (!Number.isNaN(support.varianceRemainder) && Math.abs(support.varianceRemainder) > 1e-6) {
+      messages.push(`Variance remainder σ²_obs − σ²_ε − σ²_μ − σ²_S = ${fmt(support.varianceRemainder, 4)}. A non-zero value is acceptable when the semivariogram is residual- or component-specific.`);
+    }
+    messages.push("Use direct λ and Δ entry when these support quantities have already been computed by numerical integration, a reported SRE, or the example-specific R workflow.");
+  }
+  messages.push("n.i. means non-informative: the supplied inputs imply an adjusted endpoint outside the feasible metric range. Do not truncate such endpoints to R² = 1 or RMSE = 0.");
+  $("diagnostics").innerHTML = messages.map(message => `<p>${message}</p>`).join("");
+  drawSemivariogram(support);
+}
+
+function svgElement(name, attributes = {}, text = "") {
+  const element = document.createElementNS("http://www.w3.org/2000/svg", name);
+  Object.entries(attributes).forEach(([key, value]) => element.setAttribute(key, value));
+  if (text) element.textContent = text;
+  return element;
+}
+
+function drawSemivariogram(support) {
+  const target = $("svgm_plot");
+  target.replaceChildren();
+  const width = Math.max(330, Math.round(target.getBoundingClientRect().width || 430));
+  const height = 250;
+  const svg = svgElement("svg", { viewBox: `0 0 ${width} ${height}`, "aria-hidden": "true" });
+  target.appendChild(svg);
+
+  if (selected("support_mode") !== "svgm") {
+    svg.appendChild(svgElement("text", { x: width / 2, y: height / 2, "text-anchor": "middle", fill: "#555", "font-size": 12 }, "Semivariogram plot shown in semivariogram mode"));
+    return;
+  }
+
+  const sigma2Obs = numberOrNaN($("obs_var").value);
+  const sigma2Eps = numberOrNaN($("eps_var").value);
+  const sigma2Mu = numberOrNaN($("mu_var").value);
+  const sigma2S = numberOrNaN($("sigmaS_var_in").value);
+  const blockSide = numberOrNaN($("block_L").value);
+  const range = numberOrNaN($("range_a").value);
+  if ([sigma2Obs, sigma2Eps, sigma2Mu, sigma2S, blockSide, range].some(Number.isNaN) || range <= 0 || blockSide <= 0 || sigma2S < 0) {
+    svg.appendChild(svgElement("text", { x: width / 2, y: height / 2, "text-anchor": "middle", fill: "#555", "font-size": 12 }, "Enter valid semivariogram inputs"));
+    return;
+  }
+
+  const margin = { top: 12, right: 12, bottom: 42, left: 55 };
+  const plotWidth = width - margin.left - margin.right;
+  const plotHeight = height - margin.top - margin.bottom;
+  const maxH = Math.max(range, blockSide) * 1.1;
+  const model = selected("svgm_model");
+  const points = Array.from({ length: 200 }, (_, i) => {
+    const h = maxH * i / 199;
+    const rho = model === "spherical" ? rhoSpherical(h, range) : rhoExponentialPractical(h, range);
+    const latent = sigma2Mu + sigma2S * (1 - rho);
+    return { h, latent, observed: sigma2Eps + latent };
+  });
+  const maxY = Math.max(...points.map(point => point.observed), 0) || 1;
+  const x = h => margin.left + h / maxH * plotWidth;
+  const y = value => margin.top + plotHeight - value / maxY * plotHeight;
+
+  const tickCount = 4;
+  for (let i = 0; i <= tickCount; i += 1) {
+    const xv = maxH * i / tickCount;
+    const yv = maxY * i / tickCount;
+    svg.appendChild(svgElement("line", { x1: x(xv), y1: margin.top + plotHeight, x2: x(xv), y2: margin.top + plotHeight + 4, stroke: "#333" }));
+    svg.appendChild(svgElement("text", { x: x(xv), y: height - 23, "text-anchor": "middle", fill: "#333", "font-size": 10 }, fmt(xv, 3)));
+    svg.appendChild(svgElement("line", { x1: margin.left - 4, y1: y(yv), x2: margin.left, y2: y(yv), stroke: "#333" }));
+    svg.appendChild(svgElement("text", { x: margin.left - 7, y: y(yv) + 3, "text-anchor": "end", fill: "#333", "font-size": 10 }, fmt(yv, 3)));
+  }
+  svg.appendChild(svgElement("line", { x1: margin.left, y1: margin.top, x2: margin.left, y2: margin.top + plotHeight, stroke: "#333" }));
+  svg.appendChild(svgElement("line", { x1: margin.left, y1: margin.top + plotHeight, x2: margin.left + plotWidth, y2: margin.top + plotHeight, stroke: "#333" }));
+  svg.appendChild(svgElement("text", { x: margin.left + plotWidth / 2, y: height - 4, "text-anchor": "middle", fill: "#222", "font-size": 11 }, "lag distance h"));
+  const yLabel = svgElement("text", { x: 14, y: margin.top + plotHeight / 2, "text-anchor": "middle", fill: "#222", "font-size": 11, transform: `rotate(-90 14 ${margin.top + plotHeight / 2})` }, "semivariance");
+  svg.appendChild(yLabel);
+
+  function pathFor(key) {
+    return points.map((point, i) => `${i === 0 ? "M" : "L"}${x(point.h).toFixed(2)},${y(point[key]).toFixed(2)}`).join(" ");
+  }
+  svg.appendChild(svgElement("path", { d: pathFor("observed"), fill: "none", stroke: "#111", "stroke-width": 2 }));
+  svg.appendChild(svgElement("path", { d: pathFor("latent"), fill: "none", stroke: "#111", "stroke-width": 2, "stroke-dasharray": "7 5" }));
+
+  const guides = [
+    { horizontal: sigma2Eps },
+    { horizontal: sigma2Eps + sigma2Mu },
+    { vertical: support.radius }
+  ];
+  guides.forEach(guide => {
+    if ("horizontal" in guide) {
+      svg.appendChild(svgElement("line", { x1: margin.left, y1: y(guide.horizontal), x2: margin.left + plotWidth, y2: y(guide.horizontal), stroke: "#777", "stroke-dasharray": "3 4" }));
+    } else {
+      svg.appendChild(svgElement("line", { x1: x(guide.vertical), y1: margin.top, x2: x(guide.vertical), y2: margin.top + plotHeight, stroke: "#777", "stroke-dasharray": "3 4" }));
+    }
+  });
+
+  const legendItems = [
+    ["observed semivariogram", "#111", ""],
+    ["latent true semivariogram", "#111", "7 5"],
+    ["σ²_ε", "#777", "3 4"],
+    ["σ²_ε + σ²_μ", "#777", "3 4"],
+    ["R = L / √π", "#777", "3 4"]
+  ];
+  const legendWidth = 174;
+  const legendX = margin.left + plotWidth - legendWidth;
+  const legendY = margin.top + plotHeight - legendItems.length * 16 - 5;
+  svg.appendChild(svgElement("rect", { x: legendX - 5, y: legendY - 5, width: legendWidth + 5, height: legendItems.length * 16 + 7, fill: "white", opacity: 0.88 }));
+  legendItems.forEach(([label, color, dash], i) => {
+    const yy = legendY + i * 16 + 5;
+    svg.appendChild(svgElement("line", { x1: legendX, y1: yy, x2: legendX + 23, y2: yy, stroke: color, "stroke-width": i < 2 ? 2 : 1, "stroke-dasharray": dash }));
+    svg.appendChild(svgElement("text", { x: legendX + 29, y: yy + 3, fill: "#222", "font-size": 9.5 }, label));
+  });
+}
+
+function setRadio(name, value) {
+  document.querySelector(`input[name="${name}"][value="${value}"]`).checked = true;
+}
+
+function setCommon(example) {
+  setRadio("metric_type", example.metricType);
+  $("metric_value").value = example.metricValue;
+  $("rmse_obs").value = example.rmse;
+  $("obs_var").value = example.obsVar;
+  $("obs_sd").value = significant(Math.sqrt(Number(example.obsVar)));
+  $("eps_var").value = example.epsVar;
+  $("eps_sd").value = significant(Math.sqrt(Number(example.epsVar)));
+}
+
+function setExample(example) {
+  setCommon(example);
+  setRadio("support_mode", example.mode);
+  if (example.mode === "direct") {
+    $("lambda_direct").value = example.lambda;
+    $("delta_direct").value = example.delta;
+  } else {
+    $("mu_var").value = example.muVar;
+    $("mu_sd").value = significant(Math.sqrt(Number(example.muVar)));
+    $("sigmaS_var_in").value = example.sigmaSVar;
+    $("sigmaS_sd_in").value = significant(Math.sqrt(Number(example.sigmaSVar)));
+    $("block_L").value = example.blockSide;
+    $("range_a").value = example.range;
+    setRadio("svgm_model", example.model);
+  }
+  updateMode();
+}
+
+const examples = {
+  bts: { metricType: "r2_cor", metricValue: 0.451, rmse: 1.82, obsVar: 4.19, epsVar: 0.05, mode: "svgm", muVar: 0.40, sigmaSVar: 2.85, blockSide: 30, range: 180, model: "spherical" },
+  swe10: { metricType: "r2_cor", metricValue: 0.414, rmse: 125.5, obsVar: 26896, epsVar: 400, mode: "svgm", muVar: 1200, sigmaSVar: 25296, blockSide: 10, range: 250, model: "exponential" },
+  swe100: { metricType: "r2_cor", metricValue: 0.414, rmse: 125.5, obsVar: 26896, epsVar: 400, mode: "svgm", muVar: 1200, sigmaSVar: 25296, blockSide: 100, range: 250, model: "exponential" },
+  no2euSplit: { metricType: "r2_pred", metricValue: 0.553, rmse: 9.5258, obsVar: 203, epsVar: 56.4, mode: "svgm", muVar: 56.4, sigmaSVar: 70.2, blockSide: 100, range: 342798, model: "spherical" },
+  no2euFull: { metricType: "r2_pred", metricValue: 0.553, rmse: 9.5258, obsVar: 203, epsVar: 0, mode: "svgm", muVar: 112.8, sigmaSVar: 70.2, blockSide: 100, range: 342798, model: "spherical" },
+  no2de: { metricType: "r2_cor", metricValue: 0.308, rmse: 11.2, obsVar: 181, epsVar: 0, mode: "svgm", muVar: 109, sigmaSVar: 68.3, blockSide: 2000, range: 179324, model: "spherical" },
+  meuseZn: { metricType: "r2_pred", metricValue: 0.654, rmse: 0.42, obsVar: 0.521, epsVar: 0, mode: "svgm", muVar: 0.0507, sigmaSVar: 0.591, blockSide: 100, range: 897, model: "spherical" },
+  meuseCd: { metricType: "r2_pred", metricValue: 0.711, rmse: 0.66, obsVar: 1.50, epsVar: 0, mode: "svgm", muVar: 0.548, sigmaSVar: 1.34, blockSide: 100, range: 1149, model: "spherical" }
+};
+
+function updateMode() {
+  const direct = selected("support_mode") === "direct";
+  $("direct_inputs").hidden = !direct;
+  $("svgm_inputs").hidden = direct;
+  calculate();
+}
+
+let syncing = false;
+function bindVariancePair(sdId, varianceId) {
+  $(sdId).addEventListener("input", () => {
+    if (syncing) return;
+    const value = numberOrNaN($(sdId).value);
+    if (!Number.isNaN(value) && value >= 0) {
+      syncing = true;
+      $(varianceId).value = significant(value ** 2);
+      syncing = false;
+    }
+    calculate();
+  });
+  $(varianceId).addEventListener("input", () => {
+    if (syncing) return;
+    const value = numberOrNaN($(varianceId).value);
+    if (!Number.isNaN(value) && value >= 0) {
+      syncing = true;
+      $(sdId).value = significant(Math.sqrt(value));
+      syncing = false;
+    }
+    calculate();
+  });
+}
+
+document.querySelectorAll("[data-example]").forEach(button => {
+  button.addEventListener("click", () => setExample(examples[button.dataset.example]));
+});
+document.querySelectorAll('input[name="support_mode"]').forEach(input => input.addEventListener("change", updateMode));
+document.querySelectorAll('input[name="metric_type"], input[name="svgm_model"]').forEach(input => input.addEventListener("change", calculate));
+["metric_value", "rmse_obs", "lambda_direct", "delta_direct", "block_L", "range_a"].forEach(id => $(id).addEventListener("input", calculate));
+bindVariancePair("obs_sd", "obs_var");
+bindVariancePair("eps_sd", "eps_var");
+bindVariancePair("mu_sd", "mu_var");
+bindVariancePair("sigmaS_sd_in", "sigmaS_var_in");
+window.addEventListener("resize", () => drawSemivariogram(supportValues()));
+updateMode();
+</script>
+</body>
+</html>

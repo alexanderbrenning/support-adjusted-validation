@@ -1,0 +1,367 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Tier 1 reference-error adjustment</title>
+  <style>
+    :root {
+      --ink: #20252a;
+      --muted: #626a72;
+      --line: #d8dde2;
+      --panel: #f5f6f7;
+      --blue: #1f5f99;
+      --blue-bg: #eef6ff;
+      --blue-line: #8dbbe5;
+      --amber: #7a4a00;
+      --amber-bg: #fff5df;
+      --amber-line: #d4a64a;
+      --warning-bg: #fff8e8;
+      --warning-line: #e1c77a;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      color: var(--ink);
+      background: #fff;
+      font: 13px/1.4 system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+    main { max-width: 1320px; margin: 0 auto; padding: 20px; }
+    h1 { margin: 0 0 18px; font-size: 27px; font-weight: 500; }
+    h2 { margin: 0 0 10px; font-size: 18px; font-weight: 600; }
+    h3 { margin: 0 0 8px; font-size: 14px; font-weight: 600; }
+    .layout { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 24px; }
+    .panel {
+      padding: 14px;
+      border: 1px solid var(--line);
+      border-radius: 5px;
+      background: var(--panel);
+    }
+    .button-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-bottom: 14px; }
+    button {
+      min-height: 34px;
+      padding: 6px 10px;
+      border: 1px solid #b9c0c7;
+      border-radius: 4px;
+      color: var(--ink);
+      background: #fff;
+      font: inherit;
+      cursor: pointer;
+    }
+    button:hover { background: #f0f3f5; border-color: #929ba4; }
+    button:focus-visible, input:focus-visible { outline: 2px solid #2b78c5; outline-offset: 1px; }
+    fieldset { margin: 0 0 10px; padding: 0; border: 0; }
+    legend, label { display: block; margin-bottom: 4px; font-weight: 600; }
+    .radio-row { display: flex; flex-wrap: wrap; gap: 8px 18px; }
+    .radio-row label { display: inline-flex; align-items: center; gap: 5px; font-weight: 400; }
+    input[type="radio"] { margin: 0; }
+    input[type="text"] {
+      width: 100%;
+      height: 34px;
+      padding: 6px 9px;
+      border: 1px solid #b9c0c7;
+      border-radius: 4px;
+      background: #fff;
+      color: var(--ink);
+      font: inherit;
+    }
+    .field { margin-bottom: 9px; }
+    .pair { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+    .sd-field label { color: var(--blue); }
+    .sd-field input { background: var(--blue-bg); border-color: var(--blue-line); }
+    .var-field label { color: var(--amber); }
+    .var-field input { background: var(--amber-bg); border-color: var(--amber-line); }
+    .equation {
+      margin-bottom: 7px;
+      padding: 7px 9px;
+      border-left: 3px solid #777;
+      background: #f7f7f7;
+      font-family: Georgia, "Times New Roman", serif;
+    }
+    .resultbox {
+      display: grid;
+      grid-template-columns: minmax(170px, 0.7fr) 1fr;
+      gap: 8px;
+      margin-bottom: 7px;
+      padding: 8px 10px;
+      border: 1px solid #ddd;
+      border-radius: 4px;
+      background: #fbfbfb;
+    }
+    .status { color: var(--muted); font-style: italic; }
+    .diagnostic {
+      padding: 9px;
+      border: 1px solid var(--warning-line);
+      border-radius: 4px;
+      background: var(--warning-bg);
+      font-size: 12px;
+    }
+    .diagnostic p { margin: 0 0 5px; }
+    .diagnostic p:last-child { margin-bottom: 0; }
+    .notice { margin-top: 12px; padding-top: 8px; border-top: 1px solid var(--line); color: var(--muted); font-size: 11px; }
+    @media (max-width: 800px) {
+      main { padding: 14px; }
+      .layout { grid-template-columns: 1fr; }
+      .pair { grid-template-columns: 1fr; gap: 0; }
+      .button-grid { grid-template-columns: repeat(2, 1fr); }
+    }
+  </style>
+</head>
+<body>
+<main>
+  <h1>Tier 1 reference-error adjustment</h1>
+  <div class="layout">
+    <section>
+      <div class="panel">
+        <h3>Example inputs</h3>
+        <div class="button-grid" aria-label="Example inputs">
+          <button type="button" data-example="biomass">Biomass</button>
+          <button type="button" data-example="bts">BTS</button>
+          <button type="button" data-example="swe">SWE</button>
+          <button type="button" data-example="no2eu">NO<sub>2</sub>-EU split</button>
+          <button type="button" data-example="smap">SMAP-CRNS</button>
+          <button type="button" data-example="reset">Reset</button>
+        </div>
+
+        <fieldset>
+          <legend>Reported validation metric</legend>
+          <div class="radio-row">
+            <label><input type="radio" name="metric_type" value="correlation"> correlation <i>r</i></label>
+            <label><input type="radio" name="metric_type" value="r2_cor" checked> R²<sub>cor</sub></label>
+            <label><input type="radio" name="metric_type" value="r2_pred"> R²<sub>pred</sub></label>
+          </div>
+        </fieldset>
+
+        <div class="field">
+          <label for="metric_value">Value of selected metric</label>
+          <input id="metric_value" type="text" inputmode="decimal" value="0.50">
+        </div>
+        <div class="field">
+          <label for="rmse_obs">Raw RMSE or ubRMSE (optional)</label>
+          <input id="rmse_obs" type="text" inputmode="decimal" value="">
+        </div>
+        <div class="pair">
+          <div class="field sd-field">
+            <label for="obs_sd">Observed reference SD σ<sub>obs</sub></label>
+            <input id="obs_sd" type="text" inputmode="decimal" value="1">
+          </div>
+          <div class="field var-field">
+            <label for="obs_var">Observed reference variance σ²<sub>obs</sub></label>
+            <input id="obs_var" type="text" inputmode="decimal" value="1">
+          </div>
+        </div>
+        <div class="pair">
+          <div class="field sd-field">
+            <label for="eps_sd">Measurement-error SD σ<sub>ε</sub></label>
+            <input id="eps_sd" type="text" inputmode="decimal" value="0">
+          </div>
+          <div class="field var-field">
+            <label for="eps_var">Measurement-error variance σ²<sub>ε</sub></label>
+            <input id="eps_var" type="text" inputmode="decimal" value="0">
+          </div>
+        </div>
+      </div>
+      <div class="notice">
+        © Alexander Brenning and Thomas Suesse. License: GPL-3 or later.<br>
+        Cite as: Brenning and Suesse, <em>Support-adjusted validation metrics in environmental prediction</em> (manuscript).
+      </div>
+    </section>
+
+    <section>
+      <h2>Equations</h2>
+      <div class="equation">q<sub>ε</sub> = σ²<sub>ε</sub> / σ²<sub>obs</sub></div>
+      <div class="equation">r<sub>ME</sub> = r<sub>obs</sub> / √(1 − q<sub>ε</sub>)</div>
+      <div class="equation">R²<sub>cor,ME</sub> = R²<sub>cor,obs</sub> / (1 − q<sub>ε</sub>)</div>
+      <div class="equation">RMSE<sub>ME</sub> = √(RMSE²<sub>obs</sub> − σ²<sub>ε</sub>)</div>
+      <div class="equation">R²<sub>pred,ME</sub> = 1 − (MSE<sub>obs</sub> − σ²<sub>ε</sub>) / (σ²<sub>obs</sub> − σ²<sub>ε</sub>)</div>
+
+      <h2>Results</h2>
+      <div id="results" aria-live="polite"></div>
+
+      <h2>Diagnostics</h2>
+      <div id="diagnostics" class="diagnostic" aria-live="polite"></div>
+    </section>
+  </div>
+</main>
+
+<script>
+"use strict";
+
+const $ = id => document.getElementById(id);
+
+function numberOrNaN(value) {
+  const text = String(value ?? "").trim();
+  if (text === "") return NaN;
+  const result = Number(text);
+  return Number.isFinite(result) ? result : NaN;
+}
+
+function significant(value, digits = 8) {
+  if (!Number.isFinite(value)) return "";
+  return Number(value.toPrecision(digits)).toString();
+}
+
+function fmt(value, digits = 3) {
+  if (value === null || Number.isNaN(value)) return "--";
+  if (!Number.isFinite(value)) return "n.i.";
+  const abs = Math.abs(value);
+  if (abs !== 0 && (abs >= 1e6 || abs < 1e-4)) return value.toExponential(digits - 1);
+  const decimals = Math.max(0, digits - 1 - Math.floor(Math.log10(abs || 1)));
+  return value.toFixed(decimals);
+}
+
+function selectedMetricType() {
+  return document.querySelector('input[name="metric_type"]:checked').value;
+}
+
+function metricToComponents(metricType, metricValue, sigma2Obs, rmseObs) {
+  const out = { rawR: NaN, rawR2Cor: NaN, rawR2Pred: NaN, mseObs: NaN };
+  if (!Number.isNaN(metricValue)) {
+    if (metricType === "correlation") {
+      out.rawR = metricValue;
+      out.rawR2Cor = metricValue ** 2;
+    } else if (metricType === "r2_cor") {
+      out.rawR2Cor = metricValue;
+      out.rawR = metricValue >= 0 ? Math.sqrt(metricValue) : NaN;
+    } else if (metricType === "r2_pred") {
+      out.rawR2Pred = metricValue;
+      if (!Number.isNaN(sigma2Obs)) out.mseObs = (1 - metricValue) * sigma2Obs;
+    }
+  }
+  if (!Number.isNaN(rmseObs)) out.mseObs = rmseObs ** 2;
+  return out;
+}
+
+function resultBox(label, value, status = "") {
+  return `<div class="resultbox"><strong>${label}</strong><span>${value}${status ? ` &nbsp; <span class="status">${status}</span>` : ""}</span></div>`;
+}
+
+function calculate() {
+  const sigma2Obs = numberOrNaN($("obs_var").value);
+  const sigma2Eps = numberOrNaN($("eps_var").value);
+  const rmseObs = numberOrNaN($("rmse_obs").value);
+  const metricValue = numberOrNaN($("metric_value").value);
+  const raw = metricToComponents(selectedMetricType(), metricValue, sigma2Obs, rmseObs);
+  const qEps = sigma2Obs > 0 && !Number.isNaN(sigma2Eps) ? sigma2Eps / sigma2Obs : NaN;
+  const okQ = !Number.isNaN(qEps) && qEps >= 0 && qEps < 1;
+
+  let rMe = NaN, r2CorMe = NaN, r2PredMe = NaN, rmseMe = NaN;
+  let rStatus = "not computed", r2CorStatus = "not computed";
+  let r2PredStatus = "not computed", rmseStatus = "not computed";
+
+  if (okQ && !Number.isNaN(raw.rawR)) {
+    const candidate = raw.rawR / Math.sqrt(1 - qEps);
+    if (Math.abs(candidate) <= 1) {
+      rMe = candidate;
+      rStatus = "finite";
+    } else {
+      rStatus = "n.i.: adjusted correlation exceeds [−1, 1]";
+    }
+  }
+
+  if (okQ && !Number.isNaN(raw.rawR2Cor)) {
+    const candidate = raw.rawR2Cor / (1 - qEps);
+    if (candidate >= 0 && candidate <= 1) {
+      r2CorMe = candidate;
+      r2CorStatus = "finite";
+    } else {
+      r2CorStatus = "n.i.: adjusted R²_cor exceeds feasible range";
+    }
+  }
+
+  if (okQ && !Number.isNaN(rmseObs)) {
+    const mseMe = rmseObs ** 2 - sigma2Eps;
+    if (mseMe >= 0) {
+      rmseMe = Math.sqrt(mseMe);
+      rmseStatus = "finite";
+    } else {
+      rmseStatus = "n.i.: measurement-error variance exceeds observed squared error";
+    }
+  }
+
+  if (okQ && !Number.isNaN(raw.mseObs) && !Number.isNaN(sigma2Obs)) {
+    const mseMe = raw.mseObs - sigma2Eps;
+    const latentVariance = sigma2Obs - sigma2Eps;
+    const candidate = 1 - mseMe / latentVariance;
+    if (mseMe >= 0 && latentVariance > 0 && candidate <= 1) {
+      r2PredMe = candidate;
+      r2PredStatus = "finite";
+    } else {
+      r2PredStatus = "n.i.: MSE or latent reference variance is not feasible";
+    }
+  }
+
+  $("results").innerHTML = [
+    resultBox("q<sub>ε</sub>", fmt(qEps, 4)),
+    resultBox("Raw <i>r</i>", fmt(raw.rawR)),
+    resultBox("Raw R²<sub>cor</sub>", fmt(raw.rawR2Cor)),
+    resultBox("Raw R²<sub>pred</sub>", fmt(raw.rawR2Pred)),
+    resultBox("Tier 1 <i>r</i><sub>ME</sub>", fmt(rMe), rStatus),
+    resultBox("Tier 1 R²<sub>cor,ME</sub>", fmt(r2CorMe), r2CorStatus),
+    resultBox("Tier 1 R²<sub>pred,ME</sub>", fmt(r2PredMe), r2PredStatus),
+    resultBox("Tier 1 RMSE<sub>ME</sub>", fmt(rmseMe), rmseStatus)
+  ].join("");
+
+  const messages = [];
+  if (Number.isNaN(sigma2Obs) || sigma2Obs <= 0) messages.push("Observed reference variance must be positive.");
+  if (Number.isNaN(sigma2Eps) || sigma2Eps < 0) messages.push("Measurement-error variance must be non-negative.");
+  if (!Number.isNaN(qEps) && qEps >= 1) messages.push("q_epsilon must be smaller than one. Otherwise the latent reference variance is not positive.");
+  messages.push("n.i. means non-informative: the supplied inputs imply an adjusted endpoint outside the feasible metric range. Such endpoints should not be truncated to R² = 1 or RMSE = 0.");
+  $("diagnostics").innerHTML = messages.map(message => `<p>${message}</p>`).join("");
+}
+
+let syncing = false;
+function bindVariancePair(sdId, varianceId) {
+  $(sdId).addEventListener("input", () => {
+    if (syncing) return;
+    const value = numberOrNaN($(sdId).value);
+    if (!Number.isNaN(value) && value >= 0) {
+      syncing = true;
+      $(varianceId).value = significant(value ** 2);
+      syncing = false;
+    }
+    calculate();
+  });
+  $(varianceId).addEventListener("input", () => {
+    if (syncing) return;
+    const value = numberOrNaN($(varianceId).value);
+    if (!Number.isNaN(value) && value >= 0) {
+      syncing = true;
+      $(sdId).value = significant(Math.sqrt(value));
+      syncing = false;
+    }
+    calculate();
+  });
+}
+
+const examples = {
+  biomass: { metricType: "r2_pred", metricValue: 0.438, rmse: 992, obsVar: 1749447, epsVar: 300724 },
+  bts:     { metricType: "r2_cor", metricValue: 0.451, rmse: 1.82, obsVar: 4.19, epsVar: 0.05 },
+  swe:     { metricType: "r2_cor", metricValue: 0.414, rmse: 125.5, obsVar: 26896, epsVar: 400 },
+  no2eu:   { metricType: "r2_pred", metricValue: 0.553, rmse: 9.5258, obsVar: 203, epsVar: 56.4 },
+  smap:    { metricType: "correlation", metricValue: 0.699, rmse: 0.056, obsVar: "", epsVar: 0.000705 },
+  reset:   { metricType: "r2_cor", metricValue: 0.50, rmse: "", obsVar: 1, epsVar: 0 }
+};
+
+function setExample(example) {
+  document.querySelector(`input[name="metric_type"][value="${example.metricType}"]`).checked = true;
+  $("metric_value").value = example.metricValue;
+  $("rmse_obs").value = example.rmse;
+  $("obs_var").value = example.obsVar;
+  $("obs_sd").value = example.obsVar === "" ? "" : significant(Math.sqrt(Number(example.obsVar)));
+  $("eps_var").value = example.epsVar;
+  $("eps_sd").value = significant(Math.sqrt(Number(example.epsVar)));
+  calculate();
+}
+
+document.querySelectorAll("[data-example]").forEach(button => {
+  button.addEventListener("click", () => setExample(examples[button.dataset.example]));
+});
+document.querySelectorAll('input[name="metric_type"]').forEach(input => input.addEventListener("change", calculate));
+["metric_value", "rmse_obs"].forEach(id => $(id).addEventListener("input", calculate));
+bindVariancePair("obs_sd", "obs_var");
+bindVariancePair("eps_sd", "eps_var");
+calculate();
+</script>
+</body>
+</html>

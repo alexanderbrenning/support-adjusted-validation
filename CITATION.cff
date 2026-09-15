@@ -1,0 +1,20 @@
+cff-version: 1.2.0
+title: "Code and data for support-adjusted validation metrics in environmental prediction"
+message: "Please cite the manuscript when using this code."
+authors:
+  - family-names: Brenning
+    given-names: Alexander
+  - family-names: Suesse
+    given-names: Thomas
+year: 2026
+license: GPL-3.0-or-later
+preferred-citation:
+  type: article
+  title: "Support-adjusted validation metrics in environmental prediction: a minimal-information framework"
+  authors:
+    - family-names: Brenning
+      given-names: Alexander
+    - family-names: Suesse
+      given-names: Thomas
+  year: 2026
+  notes: "Manuscript; replace with preprint or journal citation when available."
